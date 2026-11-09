@@ -1,0 +1,41 @@
+Prime Detect {{ .Chart.AppVersion }} installed as release "{{ .Release.Name }}" in namespace "{{ .Release.Namespace }}".
+
+Prerequisites that MUST already exist in this cluster/namespace:
+  - flink-kubernetes-operator >= 1.15 (installed separately)
+  - Apache Kafka >= 3.8 (bootstrap address in the backend and flink-sigma-config Secrets)
+  - PostgreSQL >= 14 (connection string in the backend Secret)
+  - cert-manager (required by the Flink operator; ClusterIssuer only for ingress TLS)
+{{- if .Values.imagePullSecrets }}
+  - Image pull secret(s): {{ range .Values.imagePullSecrets }}{{ .name }} {{ end }}
+{{- end }}
+
+Access:
+{{- if .Values.ingress.ui.enabled }}
+  UI:  http{{ if .Values.ingress.ui.tls.enabled }}s{{ end }}://{{ .Values.ingress.ui.host }}
+{{- end }}
+{{- if .Values.ingress.backend.enabled }}
+  API: http{{ if .Values.ingress.backend.tls.enabled }}s{{ end }}://{{ .Values.ingress.backend.host }}
+{{- end }}
+{{- if .Values.httpRoute.ui.enabled }}
+  UI:  {{ range .Values.httpRoute.ui.hostnames }}{{ . }} {{ end }}(via Gateway API - scheme/TLS set on the Gateway listener, not here)
+{{- end }}
+{{- if .Values.httpRoute.backend.enabled }}
+  API: {{ range .Values.httpRoute.backend.hostnames }}{{ . }} {{ end }}(via Gateway API - scheme/TLS set on the Gateway listener, not here)
+{{- end }}
+{{- if not (or .Values.ingress.ui.enabled .Values.ingress.backend.enabled .Values.httpRoute.ui.enabled .Values.httpRoute.backend.enabled) }}
+  Ingress/HTTPRoute disabled. Reach the apps via port-forward:
+    kubectl port-forward -n {{ .Release.Namespace }} svc/{{ .Values.ui.serviceName }} {{ .Values.ui.service.port }}:{{ .Values.ui.service.port }}
+    kubectl port-forward -n {{ .Release.Namespace }} svc/{{ .Values.backend.serviceName }} {{ .Values.backend.service.port }}:{{ .Values.backend.service.port }}
+{{- end }}
+{{- if or .Values.httpRoute.ui.enabled .Values.httpRoute.backend.enabled }}
+
+Gateway API note: the referenced Gateway typically only accepts routes from
+namespaces it explicitly allows (allowedRoutes.namespaces.from: Selector).
+This chart cannot label namespaces - if routes show Accepted: False, check
+whether "{{ .Release.Namespace }}" needs a label the Gateway's owner requires, e.g.:
+    kubectl label ns {{ .Release.Namespace }} gateway-access=allowed
+(exact label key/value depends on how the Gateway is configured - ask its owner)
+{{- end }}
+
+Check rollout:
+  kubectl get pods -n {{ .Release.Namespace }}

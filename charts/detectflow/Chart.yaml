@@ -1,0 +1,13 @@
+apiVersion: v2
+name: detectflow
+description: Prime Detect application layer, open-source edition (backend, UI, Flink supporting resources)
+type: application
+# version: chart version, bumped on any chart change (SemVer 2)
+version: 0.18.0+oss
+# appVersion: version of the Prime Detect application images this chart ships
+appVersion: "v2.3.2"
+kubeVersion: ">=1.28.0-0"
+maintainers:
+  - name: SOC Prime
+    email: support@socprime.com
+home: https://socprime.com

@@ -1,0 +1,28 @@
+{{- if not .Values.ui.existingConfigMap }}
+{{- /*
+  Host allowlist for the Vite preview server: whichever external hostname the
+  UI is published under (Ingress or Gateway API - only one can be enabled per
+  component), plus the in-cluster Service name and localhost for port-forward.
+  An unlisted Host header is rejected by Vite with 403.
+*/ -}}
+{{- $hosts := without (concat
+      (ternary (list .Values.ingress.ui.host) (list) .Values.ingress.ui.enabled)
+      (ternary .Values.httpRoute.ui.hostnames (list) .Values.httpRoute.ui.enabled)
+      (list (printf "%s.%s.svc.cluster.local" .Values.ui.serviceName .Release.Namespace) "localhost")
+    ) "" -}}
+{{- $computed := dict
+      "VITE_API_BASE_URL" "/api/v1"
+      "VITE_API_PROXY_TARGET" (printf "http://%s.%s.svc.cluster.local:%v" .Values.backend.serviceName .Release.Namespace .Values.backend.service.port)
+      "VITE_PREVIEW_ALLOWED_HOSTS" (join "," $hosts)
+      "VITE_USE_MOCK_API" "false"
+      "VITE_USE_MOCK_AUTH" "false" -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: admin-panel-ui-config
+  labels:
+    {{- include "detectflow.labels" (dict "ctx" . "component" "ui") | nindent 4 }}
+data:
+  # Chart-computed defaults; any key set in ui.config overrides the one here.
+  {{- toYaml (merge (deepCopy .Values.ui.config) $computed) | nindent 2 }}
+{{- end }}

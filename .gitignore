@@ -1,0 +1,26 @@
+# Pre-created cluster resources applied outside the chart (ConfigMaps,
+# Secrets, and any other environment-specific manifests). Cluster-specific,
+# not part of the chart.
+manifests/
+
+# Local values overlays - any personal/cluster-specific values file (real
+# hostnames, ACM ARNs, account IDs, bare-metal overrides, ...). The chart's
+# own values.yaml is unaffected (no hyphen before "values.yaml"). Copy
+# values.yaml.example to get started with your own overlay.
+charts/detectflow/*-values.yaml
+
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Local working notes - maintainer scratch, not part of the chart
+CLAUDE.md
+memory.md
+IMPROVEMENTS.md
+VERIFY.md

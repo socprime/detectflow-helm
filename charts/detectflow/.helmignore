@@ -1,0 +1,12 @@
+.git/
+.gitignore
+*.tmp
+*.bak
+.DS_Store
+ci/
+docs/
+
+# Local values overlays (real hostnames, ACM ARNs, account IDs, cluster-specific
+# overrides). Never ship these inside the packaged chart. The hyphen keeps
+# values.yaml and values.yaml.example - both of which DO belong - unaffected.
+*-values.yaml

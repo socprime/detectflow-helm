@@ -1,0 +1,463 @@
+# nameOverride: override the chart name used in labels/resource names
+nameOverride: ""
+# fullnameOverride: override the full resource-name prefix
+fullnameOverride: ""
+
+# imagePullSecrets: pre-created docker-registry secrets, applied to the app
+# pods and to the 'flink' ServiceAccount the operator-spawned job pods run
+# under. The Prime Detect OSS images are public on Docker Hub, so none is needed.
+# Add one only if you mirror the images into a private registry, e.g.:
+#   imagePullSecrets:
+#     - name: "my-registry-creds"
+imagePullSecrets: []
+
+# backend: admin-panel-be settings
+backend:
+  # image: backend container image (repository/tag/pullPolicy)
+  image:
+    repository: "socprime/detectflow-oss"
+    tag: "admin-panel-be-oss.v2.3.2"
+    pullPolicy: "IfNotPresent"
+  # serviceName: fixed Service/Deployment name other components resolve by DNS
+  serviceName: "admin-panel-be"
+  # replicas: number of backend pods
+  replicas: 1
+  # existingSecret: reference a pre-created Secret (DATABASE_URL, JWT_SECRET_KEY,
+  # JWT_REFRESH_SECRET_KEY, KAFKA_BOOTSTRAP_SERVERS, KAFKA_AUTH_METHOD).
+  # Empty = the chart renders 'admin-panel-be-secret' from .secret below.
+  existingSecret: "admin-panel-be-secret"
+  # secret: free-form map (KEY: value) rendered into 'admin-panel-be-secret' when
+  # existingSecret is empty. Keys: DATABASE_URL, KAFKA_BOOTSTRAP_SERVERS,
+  # KAFKA_AUTH_METHOD, JWT_SECRET_KEY, JWT_REFRESH_SECRET_KEY - see the
+  # "Backend config/secret key reference" section in the README.
+  # WARNING: values set here land in a manifest - prefer existingSecret for real creds.
+  secret: {}
+  # existingConfigMap: reference a pre-created ConfigMap instead of rendering one.
+  # Empty = the chart renders 'admin-panel-be-config' from .config below.
+  existingConfigMap: ""
+  # config: free-form map (KEY: value) of non-sensitive backend env, rendered into
+  # 'admin-panel-be-config' (merged with the chart-computed keys) when
+  # existingConfigMap is empty. Keys are listed in the README's "Backend
+  # config/secret key reference" section.
+  config: {}
+  # resources: backend container resource requests/limits
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "512Mi"
+    limits:
+      cpu: "2"
+      memory: "1Gi"
+  # persistence: PVC mounted at /mnt/metrics
+  persistence:
+    enabled: true
+    # existingClaim: reference a pre-created PVC instead of rendering one
+    # (e.g. a hand-made claim on shared storage). The name given here is used
+    # for the pod's claimName; size/storageClass/accessModes/keep below are
+    # then ignored - the existing PVC's own spec applies.
+    existingClaim: ""
+    size: "1Gi"
+    storageClass: ""
+    accessModes:
+      - "ReadWriteOnce"
+    # keep: add helm.sh/resource-policy=keep so the PVC survives helm
+    # uninstall/upgrade (protects the disk from accidental deletion).
+    keep: true
+  # service: how the backend Service is exposed in-cluster
+  service:
+    type: "ClusterIP"
+    port: 8000
+    annotations: {}
+  # serviceAccount: SA the backend runs as (bound to admin-panel-flink-access RBAC)
+  serviceAccount:
+    create: true
+    # name: defaults to serviceName when empty
+    name: ""
+    annotations: {}
+  # podAnnotations / podLabels: extra metadata on the pod template
+  podAnnotations: {}
+  podLabels: {}
+  # nodeSelector: schedule app pods onto the detectflow node. Keep the pin on
+  # clusters where the metrics PVC is zonal (EBS): an unpinned pod can land in
+  # another AZ and fail to attach its volume. On a cluster whose nodes carry no
+  # such label, set this to null (not {}) - Helm deep-merges maps, so {} would
+  # keep this default, e.g. `--set-json backend.nodeSelector=null`.
+  # NOTE: the 'spec-node-ns-pod-disk=pvc-security' label is for the Flink JOB pods
+  # (PVC scheduling), which the operator creates from the backend's FlinkDeployment
+  # spec - set it there, not here.
+  nodeSelector:
+    app: detectflow-prod
+  # tolerations: node taint tolerations
+  tolerations: []
+  # affinity: pod/node affinity rules
+  affinity: {}
+  # podSecurityContext: pod-level security context. The backend image runs as
+  # uid 1000 (appuser); fsGroup keeps the metrics PVC group-owned by the same
+  # id. Set to null (not {}) to disable, e.g. for older root-only images -
+  # Helm deep-merges maps, so {} would merge with (and keep) these defaults
+  # instead of clearing them, e.g. `--set-json backend.podSecurityContext=null`.
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+  # securityContext: container-level security context. The app binds a
+  # non-privileged port (8000) and needs no capabilities.
+  # readOnlyRootFilesystem is deliberately NOT set - the app's write paths
+  # outside /mnt/metrics are unverified.
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop: ["ALL"]
+  # automountServiceAccountToken: backend talks to the K8s API (FlinkDeployments,
+  # job Deployments) - keep true.
+  automountServiceAccountToken: true
+  # terminationGracePeriodSeconds: time for graceful shutdown before SIGKILL
+  terminationGracePeriodSeconds: 30
+  # extraEnvs: additional env vars appended to the container (list of name/value)
+  extraEnvs: []
+  # envFrom: extra ConfigMap/Secret sources (appended after the chart's own)
+  envFrom: []
+  # extraVolumes / extraVolumeMounts: additional volumes for the pod/container
+  extraVolumes: []
+  extraVolumeMounts: []
+  # startupProbe: grace period for a slow first boot. While it runs, liveness/
+  # readiness are not evaluated - their initialDelaySeconds only starts
+  # counting once this succeeds. failureThreshold*periodSeconds = 300s budget.
+  startupProbe:
+    httpGet:
+      path: /health
+      port: http
+    failureThreshold: 30
+    periodSeconds: 10
+  # livenessProbe / readinessProbe: probe specs. Set to null (not {}) to
+  # disable - Helm deep-merges maps, so {} would merge with (and keep) this
+  # default instead of clearing it, e.g. `--set-json backend.livenessProbe=null`.
+  # initialDelaySeconds kept low - startupProbe above already covers slow boot.
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: http
+    initialDelaySeconds: 10
+    periodSeconds: 30
+  readinessProbe:
+    httpGet:
+      path: /health
+      port: http
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    failureThreshold: 10
+  # updateStrategy: Recreate because the metrics PVC is ReadWriteOnce - a
+  # RollingUpdate pod scheduled to another node deadlocks on Multi-Attach.
+  # RollingUpdate is safe once that volume is ReadWriteMany (e.g. an
+  # existingClaim on shared storage).
+  updateStrategy:
+    type: Recreate
+  # podDisruptionBudget: optional PDB for the backend
+  podDisruptionBudget:
+    enabled: false
+    minAvailable: 1
+    # maxUnavailable: ""   # set instead of minAvailable if preferred
+
+# ui: admin-panel-ui settings
+ui:
+  # image: UI container image (repository/tag/pullPolicy)
+  image:
+    repository: "socprime/detectflow-oss"
+    tag: "admin-panel-ui-oss.v2.3.2"
+    pullPolicy: "IfNotPresent"
+  # serviceName: fixed Service/Deployment name (ingress + internal references)
+  serviceName: "admin-panel-ui"
+  # replicas: number of UI pods
+  replicas: 1
+  # existingConfigMap: reference a pre-created ConfigMap instead of rendering one.
+  # Empty = the chart renders 'admin-panel-ui-config' from .config below.
+  existingConfigMap: ""
+  # config: free-form map (KEY: value) of UI env (VITE_*), rendered into
+  # 'admin-panel-ui-config' when existingConfigMap is empty. The chart already
+  # computes the keys a deployment cannot work without - VITE_API_BASE_URL,
+  # VITE_API_PROXY_TARGET (backend service + release namespace + port),
+  # VITE_PREVIEW_ALLOWED_HOSTS (ingress.ui.host or httpRoute.ui.hostnames,
+  # plus the in-cluster UI Service and localhost) and VITE_USE_MOCK_API /
+  # VITE_USE_MOCK_AUTH, both "false". Set a key here only to override one of
+  # those, or to add others (VITE_SSE_*, VITE_ENVIRONMENT_STAGE). See README.
+  config: {}
+  # existingSecret: reference a pre-created Secret instead of rendering one.
+  # Empty = the chart renders 'admin-panel-ui-secret' from .secret below, but
+  # only if .secret is non-empty. Both empty = no Secret and no secretRef.
+  existingSecret: ""
+  # secret: free-form map (KEY: value) rendered into 'admin-panel-ui-secret'
+  # when existingSecret is empty and this is non-empty.
+  secret: {}
+  # resources: UI container resource requests/limits
+  resources:
+    requests:
+      cpu: "200m"
+      memory: "256Mi"
+    limits:
+      cpu: "1"
+      memory: "512Mi"
+  # service: how the UI Service is exposed in-cluster
+  service:
+    type: "ClusterIP"
+    port: 4173
+    annotations: {}
+  # podAnnotations / podLabels: extra metadata on the pod template
+  podAnnotations: {}
+  podLabels: {}
+  # nodeSelector: schedule app pods onto the detectflow node (UI has no PVC).
+  # On a cluster without that node label, set to null (not {}) - see the
+  # backend comment above for why {} does not clear it.
+  nodeSelector:
+    app: detectflow-prod
+  # tolerations: node taint tolerations
+  tolerations: []
+  # affinity: pod/node affinity rules
+  affinity: {}
+  # podSecurityContext / securityContext: the UI image runs as uid 1001
+  # (nodejs). No fsGroup - the UI mounts no volumes. Set to null (not {}) to
+  # disable - {} deep-merges and keeps these defaults (see backend comments).
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1001
+    seccompProfile:
+      type: RuntimeDefault
+  # The UI binds a non-privileged port (4173) and needs no capabilities.
+  # readOnlyRootFilesystem deliberately NOT set (write paths unverified).
+  securityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop: ["ALL"]
+  # automountServiceAccountToken: UI never talks to the K8s API - no token needed
+  automountServiceAccountToken: false
+  # terminationGracePeriodSeconds: time for graceful shutdown before SIGKILL
+  terminationGracePeriodSeconds: 30
+  # extraEnvs / envFrom: additional env sources
+  extraEnvs: []
+  envFrom: []
+  # extraVolumes / extraVolumeMounts: additional volumes
+  extraVolumes: []
+  extraVolumeMounts: []
+  # livenessProbe / readinessProbe: probe specs. Set to null (not {}) to
+  # disable - Helm deep-merges maps, so {} would merge with (and keep) this
+  # default instead of clearing it, e.g. `--set-json ui.livenessProbe=null`.
+  livenessProbe:
+    httpGet:
+      path: /
+      port: http
+    initialDelaySeconds: 30
+    periodSeconds: 30
+  readinessProbe:
+    tcpSocket:
+      port: http
+    initialDelaySeconds: 10
+    periodSeconds: 5
+  # updateStrategy: Deployment rollout strategy
+  updateStrategy:
+    type: RollingUpdate
+  # podDisruptionBudget: optional PDB for the UI
+  podDisruptionBudget:
+    enabled: false
+    minAvailable: 1
+
+# flink: supporting resources for operator-spawned FlinkDeployments
+flink:
+  # image: flink-sigma-detector image handed to the backend as FLINK_IMAGE.
+  # No workload here uses it directly - the backend spawns FlinkDeployments with it.
+  image:
+    repository: "socprime/detectflow-oss"
+    tag: "flink-sigma-detector-oss.v2.3.2"
+    pullPolicy: "IfNotPresent"
+  # rbac: Flink RBAC (SA 'flink' + roles/bindings). Rendered by default, and
+  # equivalent to the standalone flink-rbac.yaml distributed with Prime Detect.
+  # Set create: false only if RBAC is applied externally.
+  rbac:
+    create: true
+  # existingConfigMap: reference a pre-created ConfigMap instead of rendering
+  # one (default name 'flink-config'). Any name works - it's passed to the
+  # backend as FLINK_CONFIG_CONFIGMAP_NAME, which the operator-spawned Flink
+  # job spec reads by that name.
+  existingConfigMap: ""
+  # existingSecret: reference a pre-created Secret (KAFKA_BOOTSTRAP_SERVERS,
+  # KAFKA_AUTH_METHOD) instead of rendering one (default name
+  # 'flink-sigma-config'). Any name works - passed to the backend as
+  # FLINK_SIGMA_CONFIG_SECRET_NAME. Empty = the chart renders
+  # 'flink-sigma-config' from .secret below.
+  existingSecret: "flink-sigma-config"
+  # secret: free-form map (KEY: value) rendered into 'flink-sigma-config' when
+  # existingSecret is empty. Expected keys: KAFKA_BOOTSTRAP_SERVERS,
+  # KAFKA_AUTH_METHOD. WARNING: values set here land in a manifest - prefer
+  # existingSecret for real Kafka connection details.
+  secret: {}
+  # config: free-form map (KEY: value) for the flink-config ConfigMap, rendered
+  # when existingConfigMap is empty AND this is non-empty. Both empty = no
+  # ConfigMap at all (rendering an empty one would only collide with a
+  # hand-made flink-config, or hide a forgotten existingConfigMap).
+  # Keys (e.g. KAFKA_STARTING_OFFSET, LOG_LEVEL, LOG_FORMAT) are in the README.
+  config: {}
+  # pvcs: checkpoint/HA/savepoint volumes used by Flink jobs
+  pvcs:
+    enabled: true
+    # existing*Claim: reference a pre-created PVC by name instead of rendering
+    # one - set per volume, independently. Needed when the Flink volumes live
+    # on shared storage whose claims are created by hand. The name given here
+    # is what the backend receives as FLINK_CHECKPOINTS_PVC / FLINK_HA_PVC /
+    # FLINK_SAVEPOINTS_PVC, so the operator-spawned job pods mount the right
+    # claim. storageClass/accessModes/sizes/keep below apply only to the PVCs
+    # the chart still renders.
+    existingCheckpointsClaim: ""
+    existingHaClaim: ""
+    existingSavepointsClaim: ""
+    storageClass: ""
+    # accessModes: applies to all three PVCs. storageClass alone does not
+    # determine RWO vs RWX - e.g. Longhorn decides block vs. NFS/share-manager
+    # provisioning per-PVC from this field, not from the storage class name.
+    # Set to ReadWriteMany if TaskManager/JobManager pods can land on
+    # different nodes and need to share these volumes.
+    accessModes:
+      - "ReadWriteOnce"
+    checkpointsSize: "5Gi"
+    haSize: "2Gi"
+    savepointsSize: "5Gi"
+    # keep: add helm.sh/resource-policy=keep so these PVCs survive helm
+    # uninstall/upgrade (protects the disks from accidental deletion).
+    keep: true
+
+# jobs: images for the worker jobs the backend launches as Deployments in this
+# namespace (df-agent / df-correlation) - same pattern as the flink image above:
+# no workload here uses them directly, they are handed to the backend via the
+# chart-computed ConfigMap keys (AGENT_JOB_IMAGE, CORRELATION_JOB_IMAGE, ...)
+# and triggered from the UI through the backend.
+jobs:
+  agent:
+    image:
+      repository: "socprime/detectflow-oss"
+      tag: "df-agent-oss.v2.3.2"
+    # deploymentName: AGENT_JOB_DEPLOYMENT_NAME the backend manages
+    deploymentName: "agent-job"
+    # existingConfigMap: reference a pre-created ConfigMap instead of
+    # rendering one. Defaults to 'detectflow-agent-config'; the chosen name
+    # is passed to the backend as DETECTFLOW_AGENT_CONFIGMAP_NAME, which is
+    # how the agent-job pod (LLM_BASE_URL, LLM_MODEL, rate/retry/size tuning
+    # - see README) learns the actual name to mount via envFrom.
+    existingConfigMap: ""
+    # config: free-form map (KEY: value) for the detectflow-agent-config
+    # ConfigMap, rendered when existingConfigMap is empty AND this is
+    # non-empty. Both empty = no ConfigMap at all, same reasoning as
+    # flink.config above.
+    config: {}
+    # existingSecret: reference a pre-created Secret instead of rendering
+    # one. Defaults to 'detectflow-agent-secrets'; the chosen name is passed
+    # to the backend as DETECTFLOW_AGENT_SECRET_NAME. Empty + empty 'secret'
+    # below renders no Secret - valid when the LLM endpoint needs no auth.
+    existingSecret: ""
+    # secret: free-form map (KEY: value) rendered into 'detectflow-agent-secrets'
+    # when existingSecret is empty and this is non-empty. Expected keys:
+    # LLM_API_KEY; for a self-signed LLM endpoint, also a CA cert plus
+    # SSL_CERT_FILE (see README).
+    # WARNING: values set here land in a manifest - prefer existingSecret for
+    # real credentials.
+    secret: {}
+  correlation:
+    image:
+      repository: "socprime/detectflow-oss"
+      tag: "df-correlation-oss.v2.3.2"
+    # deploymentName: CORRELATION_JOB_DEPLOYMENT_NAME the backend manages
+    deploymentName: "correlation-job"
+    # serviceAccount: SA the correlation-job Deployment runs under
+    serviceAccount: "default"
+
+# networkPolicy: optional in-namespace traffic restrictions for the app pods.
+# Disabled by default - enable after checking your CNI enforces NetworkPolicy.
+networkPolicy:
+  enabled: false
+  ui:
+    # allowAll: accept ingress to the UI port from any source (needed for
+    # ALB target-type=ip / ingress controllers outside this namespace).
+    # false = only sources listed in extraFrom.
+    allowAll: true
+    # extraFrom: extra NetworkPolicyPeer entries (podSelector/namespaceSelector/ipBlock)
+    extraFrom: []
+  backend:
+    # allowAll: false = backend reachable only from the UI pods (+ extraFrom).
+    # Set true (or add peers to extraFrom) if ingress.backend.enabled.
+    allowAll: false
+    extraFrom: []
+
+# ingress: two INDEPENDENT Ingress resources - one for the UI, one for the backend.
+# Each has its own host, IngressClass, annotations and TLS, so you can use a
+# separate certificate per DNS name (e.g. a per-host ACM cert on AWS ALB).
+ingress:
+  # ui: Ingress routing to the UI Service (which proxies /api/v1 to the backend)
+  ui:
+    enabled: true
+    # className: IngressClass (nginx, traefik, alb, haproxy). Empty = cluster default.
+    className: ""
+    # host: hostname for the UI
+    host: "detectflow.example.com"
+    # pathType: Prefix, Exact, or ImplementationSpecific (rarely needed - all
+    # mainstream controllers work fine with the default Prefix).
+    pathType: "Prefix"
+    # annotations: extra annotations (e.g. ALB / cert-manager / per-host ACM cert-arn)
+    annotations: {}
+    tls:
+      # enabled: add a TLS block + cert-manager annotation (use false for ALB/ACM).
+      enabled: true
+      # clusterIssuer: cert-manager ClusterIssuer (external to this chart)
+      clusterIssuer: "letsencrypt-prod"
+  # backend: Ingress routing straight to the backend Service (direct API access)
+  backend:
+    enabled: false
+    className: ""
+    host: "api.detectflow.example.com"
+    pathType: "Prefix"
+    annotations: {}
+    tls:
+      enabled: true
+      clusterIssuer: "letsencrypt-prod"
+
+# httpRoute: Gateway API alternative to ingress.* for clusters with no classic
+# Ingress controller (GKE Gateway, Istio/Cilium Gateway API). Mutually
+# exclusive with ingress.ui/backend for the same component - the chart fails
+# fast if both are enabled. References a pre-existing Gateway (not created by
+# this chart) via parentRefs. TLS is a Gateway-listener concern, not
+# configured here.
+httpRoute:
+  ui:
+    enabled: false
+    # parentRefs: which Gateway(s) to attach to. sectionName pins to one
+    # listener - required when the Gateway has multiple listeners (e.g. a
+    # separate HTTP-redirect-only listener next to the TLS one), otherwise
+    # the route attaches to all of them.
+    parentRefs:
+      - name: "main"
+        namespace: "gateway-system"
+        sectionName: "websecure"
+    # hostnames: one or more hostnames this route matches. Must fall within
+    # whatever hostname pattern the Gateway listener itself allows (e.g. a
+    # wildcard listener like "*.example.com") - a hostname outside that
+    # pattern is rejected by the Gateway with Accepted: False.
+    hostnames:
+      - "detectflow.example.com"
+    # path / pathType: single rule per route (same one-path-per-component
+    # scope as ingress.*). pathType: PathPrefix, Exact, or RegularExpression.
+    path: "/"
+    pathType: "PathPrefix"
+    # filters: passthrough list of HTTPRouteFilter (e.g. RequestHeaderModifier)
+    filters: []
+    annotations: {}
+    labels: {}
+  backend:
+    enabled: false
+    parentRefs:
+      - name: "main"
+        namespace: "gateway-system"
+        sectionName: "websecure"
+    hostnames:
+      - "api.detectflow.example.com"
+    path: "/"
+    pathType: "PathPrefix"
+    filters: []
+    annotations: {}
+    labels: {}

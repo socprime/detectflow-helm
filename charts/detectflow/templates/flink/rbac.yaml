@@ -1,0 +1,106 @@
+{{- if .Values.flink.rbac.create }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: flink
+  labels:
+    {{- include "detectflow.labels" (dict "ctx" . "component" "flink") | nindent 4 }}
+{{/* imagePullSecrets so the JobManager/TaskManager pods the backend spawns via the
+     operator (running under this SA) can pull the private flink-sigma-detector image. */}}
+{{- include "detectflow.imagePullSecrets" . | nindent 0 }}
+---
+# Internal Flink Role: permissions for Flink to manage its own infrastructure
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: flink-internal-role
+  labels:
+    {{- include "detectflow.labels" (dict "ctx" . "component" "flink") | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "configmaps", "services"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "deployments/finalizers"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: flink-internal-binding
+  labels:
+    {{- include "detectflow.labels" (dict "ctx" . "component" "flink") | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: flink-internal-role
+subjects:
+  - kind: ServiceAccount
+    name: flink
+---
+# Admin Panel (backend) access in this namespace: events, full Flink CRD
+# lifecycle, the job Deployments it launches (df-agent / df-correlation),
+# storage-cleanup Jobs, and read-only access to pods, pod logs and ConfigMaps.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: admin-panel-flink-access
+  labels:
+    {{- include "detectflow.labels" (dict "ctx" . "component" "flink") | nindent 4 }}
+rules:
+  # Read K8s events (pipeline status/errors shown in the UI).
+  - apiGroups: ["", "events.k8s.io"]
+    resources: ["events"]
+    verbs: ["get", "list", "watch"]
+  # Full Flink CRD lifecycle (create/manage/delete pipelines + session jobs).
+  - apiGroups: ["flink.apache.org"]
+    resources: ["flinkdeployments", "flinksessionjobs"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # Manage the Deployments the backend launches for the df-agent / df-correlation
+  # jobs (e.g. CORRELATION_JOB_DEPLOYMENT_NAME) in this namespace.
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # Manage the storage-cleanup Jobs the backend runs when a pipeline is deleted.
+  # Without this the backend logs: jobs.batch is forbidden for SA
+  # system:serviceaccount:flink:default (non-critical cleanup fails).
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # Read cleanup Job status via the /status subresource (read-only; kept separate
+  # from the 'jobs' rule so write verbs are not granted on the subresource).
+  - apiGroups: ["batch"]
+    resources: ["jobs/status"]
+    verbs: ["get"]
+  # Find pods (cleanup Job pods by label job-name, JobManager/TaskManager pods)
+  # and read their state. Add "watch" if the backend streams pod events.
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+  # Read pod logs (cleanup Job / JobManager logs shown in the UI).
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
+  # Read Flink ConfigMaps by exact name (e.g. flink-config-<deployment>). This is
+  # also what lets the backend read SSL_CERT_FILE out of detectflow-agent-config
+  # to mount the agent-job LLM CA at the exact path, instead of falling back to
+  # the conventional /etc/ssl/agent-ca/ca.pem with an optional mount.
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: admin-panel-flink-binding
+  labels:
+    {{- include "detectflow.labels" (dict "ctx" . "component" "flink") | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: admin-panel-flink-access
+subjects:
+  - kind: ServiceAccount
+    # Must match the SA the backend pod actually runs under (deployment.yaml).
+    name: {{ .Values.backend.serviceAccount.name | default .Values.backend.serviceName }}
+{{- end }}

@@ -1,0 +1,78 @@
+{{- if .Values.ingress.ui.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "detectflow.fullname" . }}-ui
+  labels:
+    {{- include "detectflow.labels" (dict "ctx" . "component" "ui") | nindent 4 }}
+  {{- if or .Values.ingress.ui.tls.enabled .Values.ingress.ui.annotations }}
+  annotations:
+    {{- if .Values.ingress.ui.tls.enabled }}
+    cert-manager.io/cluster-issuer: {{ .Values.ingress.ui.tls.clusterIssuer | quote }}
+    {{- end }}
+    {{- with .Values.ingress.ui.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- end }}
+spec:
+  {{- with .Values.ingress.ui.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  {{- if .Values.ingress.ui.tls.enabled }}
+  tls:
+    - hosts:
+        - {{ .Values.ingress.ui.host | quote }}
+      secretName: {{ printf "%s-ui-tls" (include "detectflow.fullname" .) }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.ingress.ui.host | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: {{ .Values.ingress.ui.pathType | default "Prefix" }}
+            backend:
+              service:
+                name: {{ .Values.ui.serviceName | quote }}
+                port:
+                  number: {{ .Values.ui.service.port }}
+{{- end }}
+{{- if .Values.ingress.backend.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "detectflow.fullname" . }}-backend
+  labels:
+    {{- include "detectflow.labels" (dict "ctx" . "component" "backend") | nindent 4 }}
+  {{- if or .Values.ingress.backend.tls.enabled .Values.ingress.backend.annotations }}
+  annotations:
+    {{- if .Values.ingress.backend.tls.enabled }}
+    cert-manager.io/cluster-issuer: {{ .Values.ingress.backend.tls.clusterIssuer | quote }}
+    {{- end }}
+    {{- with .Values.ingress.backend.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- end }}
+spec:
+  {{- with .Values.ingress.backend.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  {{- if .Values.ingress.backend.tls.enabled }}
+  tls:
+    - hosts:
+        - {{ .Values.ingress.backend.host | quote }}
+      secretName: {{ printf "%s-backend-tls" (include "detectflow.fullname" .) }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.ingress.backend.host | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: {{ .Values.ingress.backend.pathType | default "Prefix" }}
+            backend:
+              service:
+                name: {{ .Values.backend.serviceName | quote }}
+                port:
+                  number: {{ .Values.backend.service.port }}
+{{- end }}

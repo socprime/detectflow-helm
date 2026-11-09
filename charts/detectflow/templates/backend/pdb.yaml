@@ -1,0 +1,17 @@
+{{- if .Values.backend.podDisruptionBudget.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ .Values.backend.serviceName }}
+  labels:
+    {{- include "detectflow.labels" (dict "ctx" . "component" "backend") | nindent 4 }}
+spec:
+  {{- if .Values.backend.podDisruptionBudget.maxUnavailable }}
+  maxUnavailable: {{ .Values.backend.podDisruptionBudget.maxUnavailable }}
+  {{- else }}
+  minAvailable: {{ .Values.backend.podDisruptionBudget.minAvailable }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "detectflow.selectorLabels" (dict "ctx" . "component" "backend") | nindent 6 }}
+{{- end }}

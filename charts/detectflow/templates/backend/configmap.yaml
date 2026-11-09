@@ -1,0 +1,29 @@
+{{- if not .Values.backend.existingConfigMap }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: admin-panel-be-config
+  labels:
+    {{- include "detectflow.labels" (dict "ctx" . "component" "backend") | nindent 4 }}
+data:
+  # Chart-computed keys (always set)
+  KUBERNETES_NAMESPACE: {{ .Release.Namespace | quote }}
+  FLINK_IMAGE: {{ include "detectflow.image" .Values.flink.image | quote }}
+  IMAGE_PULL_POLICY: {{ .Values.flink.image.pullPolicy | quote }}
+  FLINK_CONFIG_CONFIGMAP_NAME: {{ .Values.flink.existingConfigMap | default "flink-config" | quote }}
+  FLINK_SIGMA_CONFIG_SECRET_NAME: {{ .Values.flink.existingSecret | default "flink-sigma-config" | quote }}
+  FLINK_CHECKPOINTS_PVC: {{ include "detectflow.pvcName" (dict "ctx" . "which" "checkpoints") | quote }}
+  FLINK_SAVEPOINTS_PVC: {{ include "detectflow.pvcName" (dict "ctx" . "which" "savepoints") | quote }}
+  FLINK_HA_PVC: {{ include "detectflow.pvcName" (dict "ctx" . "which" "ha") | quote }}
+  AGENT_JOB_IMAGE: {{ include "detectflow.image" .Values.jobs.agent.image | quote }}
+  AGENT_JOB_DEPLOYMENT_NAME: {{ .Values.jobs.agent.deploymentName | quote }}
+  DETECTFLOW_AGENT_CONFIGMAP_NAME: {{ .Values.jobs.agent.existingConfigMap | default "detectflow-agent-config" | quote }}
+  DETECTFLOW_AGENT_SECRET_NAME: {{ .Values.jobs.agent.existingSecret | default "detectflow-agent-secrets" | quote }}
+  CORRELATION_JOB_IMAGE: {{ include "detectflow.image" .Values.jobs.correlation.image | quote }}
+  CORRELATION_JOB_DEPLOYMENT_NAME: {{ .Values.jobs.correlation.deploymentName | quote }}
+  CORRELATION_JOB_SERVICE_ACCOUNT: {{ .Values.jobs.correlation.serviceAccount | quote }}
+  # User-provided env (free-form map of NAME: value from .Values.backend.config)
+  {{- with .Values.backend.config }}
+  {{- toYaml . | nindent 2 }}
+  {{- end }}
+{{- end }}

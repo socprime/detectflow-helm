@@ -1,0 +1,6 @@
+# See https://github.com/helm/chart-testing#configuration
+target-branch: master
+helm-extra-args: --timeout 1000s
+chart-dirs:
+  - charts
+validate-maintainers: false

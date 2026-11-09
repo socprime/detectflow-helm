@@ -1,0 +1,108 @@
+# Production overlay template - copy to custom-values.yaml and fill in your
+# own values. All ConfigMaps and Secrets referenced below (existingConfigMap/
+# existingSecret) must be pre-created in the cluster yourself, with the exact
+# names and keys documented in the README's Parameters tables. The chart
+# renders NONE of them in this mode - it only references them by name.
+# The Prime Detect OSS images are public, so no pull secret is needed.
+#
+# Keep every existing* key below. Dropping one puts that resource back into
+# render mode: if you have already created it by hand, Helm refuses the whole
+# release with "invalid ownership metadata" - it will not adopt an object it
+# does not own. Quick self-check before installing (expect no output):
+#   helm template <release> charts/detectflow -n <ns> -f this-file.yaml \
+#     | grep -E "^kind: (ConfigMap|Secret)"
+
+# Only needed if you mirror the public images into a private registry.
+imagePullSecrets: []
+
+backend:
+  image:
+    repository: "socprime/detectflow-oss"
+    tag: "admin-panel-be-oss.v2.3.2"
+  existingConfigMap: "admin-panel-be-config"
+  existingSecret: "admin-panel-be-secret"
+  # RBAC is applied externally and binds to the 'default' SA, so don't create
+  # a backend SA - run the backend as 'default'.
+  serviceAccount:
+    create: false
+    name: "default"
+  # size must match (or exceed) the live PVC's status.capacity - a smaller
+  # request is rejected on upgrade.
+  persistence:
+    size: "20Gi"
+    storageClass: "gp3"
+  nodeSelector:
+    app: detectflow-prod
+
+ui:
+  image:
+    repository: "socprime/detectflow-oss"
+    tag: "admin-panel-ui-oss.v2.3.2"
+  existingConfigMap: "admin-panel-ui-config"
+  nodeSelector:
+    app: detectflow-prod
+
+flink:
+  image:
+    repository: "socprime/detectflow-oss"
+    tag: "flink-sigma-detector-oss.v2.3.2"
+  # RBAC is chart-managed (rbac.yaml mirrors the canonical flink-rbac.yaml)
+  rbac:
+    create: true
+  # flink-config ConfigMap and flink-sigma-config Secret are pre-created
+  # externally under these names (any name works - passed to the backend as
+  # FLINK_CONFIG_CONFIGMAP_NAME/FLINK_SIGMA_CONFIG_SECRET_NAME).
+  existingConfigMap: "flink-config"
+  existingSecret: "flink-sigma-config"
+  # sizes must match (or exceed) the live PVCs' status.capacity
+  pvcs:
+    storageClass: "gp3"
+    checkpointsSize: "40Gi"
+    haSize: "40Gi"
+    savepointsSize: "40Gi"
+
+# jobs: df-agent / df-correlation settings. Used only for the chart-computed
+# ConfigMap keys - here the backend ConfigMap is pre-created (reference mode),
+# so keep these in sync with the AGENT_JOB_IMAGE / _DEPLOYMENT_NAME,
+# DETECTFLOW_AGENT_CONFIGMAP_NAME / _SECRET_NAME, CORRELATION_JOB_IMAGE /
+# _DEPLOYMENT_NAME / _SERVICE_ACCOUNT keys in your pre-created admin-panel-be-config.
+jobs:
+  agent:
+    image:
+      repository: "socprime/detectflow-oss"
+      tag: "df-agent-oss.v2.3.2"
+    deploymentName: "agent-job"
+    # detectflow-agent-config / detectflow-agent-secrets are pre-created
+    # externally under these names (any name works - passed to the backend
+    # as DETECTFLOW_AGENT_CONFIGMAP_NAME/DETECTFLOW_AGENT_SECRET_NAME).
+    existingConfigMap: "detectflow-agent-config"
+    existingSecret: "detectflow-agent-secrets"
+  correlation:
+    image:
+      repository: "socprime/detectflow-oss"
+      tag: "df-correlation-oss.v2.3.2"
+    deploymentName: "correlation-job"
+    serviceAccount: "default"
+
+ingress:
+  ui:
+    enabled: true
+    className: alb
+    host: "detectflow.example.com"
+    tls:
+      enabled: false
+    annotations:
+      alb.ingress.kubernetes.io/scheme: internal
+      alb.ingress.kubernetes.io/target-type: ip
+      alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+      alb.ingress.kubernetes.io/ssl-redirect: "443"
+      alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:<region>:<account-id>:certificate/<certificate-id>"
+      alb.ingress.kubernetes.io/healthcheck-path: /
+  backend:
+    enabled: false
+    className: ""
+    host: "api.detectflow.example.com"
+    annotations: {}
+    tls:
+      enabled: false
+      clusterIssuer: ""

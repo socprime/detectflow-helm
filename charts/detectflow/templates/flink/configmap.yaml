@@ -1,0 +1,12 @@
+{{- if not .Values.flink.existingConfigMap }}
+{{- if .Values.flink.config }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: flink-config
+  labels:
+    {{- include "detectflow.labels" (dict "ctx" . "component" "flink") | nindent 4 }}
+data:
+  {{- toYaml .Values.flink.config | nindent 2 }}
+{{- end }}
+{{- end }}

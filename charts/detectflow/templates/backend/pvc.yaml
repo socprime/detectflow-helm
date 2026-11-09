@@ -1,0 +1,21 @@
+{{- if and .Values.backend.persistence.enabled (not .Values.backend.persistence.existingClaim) }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "detectflow.pvcName" (dict "ctx" . "which" "metrics") }}
+  labels:
+    {{- include "detectflow.labels" (dict "ctx" . "component" "backend") | nindent 4 }}
+  {{- if .Values.backend.persistence.keep }}
+  annotations:
+    helm.sh/resource-policy: keep
+  {{- end }}
+spec:
+  accessModes:
+    {{- toYaml .Values.backend.persistence.accessModes | nindent 4 }}
+  {{- with .Values.backend.persistence.storageClass }}
+  storageClassName: {{ . | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.backend.persistence.size | quote }}
+{{- end }}

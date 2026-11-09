@@ -1,0 +1,12 @@
+{{- if not .Values.jobs.agent.existingConfigMap }}
+{{- if .Values.jobs.agent.config }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: detectflow-agent-config
+  labels:
+    {{- include "detectflow.labels" (dict "ctx" . "component" "flink") | nindent 4 }}
+data:
+  {{- toYaml .Values.jobs.agent.config | nindent 2 }}
+{{- end }}
+{{- end }}

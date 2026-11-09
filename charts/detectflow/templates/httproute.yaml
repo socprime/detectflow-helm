@@ -1,0 +1,78 @@
+{{- if .Values.httpRoute.ui.enabled }}
+{{- if .Values.ingress.ui.enabled }}
+{{- fail "ingress.ui and httpRoute.ui are mutually exclusive - enable only one" }}
+{{- end }}
+{{- if not (.Capabilities.APIVersions.Has "gateway.networking.k8s.io/v1") }}
+{{- fail "httpRoute.ui is enabled but Gateway API CRDs (gateway.networking.k8s.io/v1) are not installed in this cluster - install the Gateway API CRDs first, or use ingress.ui instead" }}
+{{- end }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ include "detectflow.fullname" . }}-ui
+  labels:
+    {{- include "detectflow.labels" (dict "ctx" . "component" "ui") | nindent 4 }}
+    {{- with .Values.httpRoute.ui.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.httpRoute.ui.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  parentRefs:
+    {{- toYaml .Values.httpRoute.ui.parentRefs | nindent 4 }}
+  hostnames:
+    {{- toYaml .Values.httpRoute.ui.hostnames | nindent 4 }}
+  rules:
+    - matches:
+        - path:
+            type: {{ .Values.httpRoute.ui.pathType | default "PathPrefix" }}
+            value: {{ .Values.httpRoute.ui.path | default "/" | quote }}
+      {{- with .Values.httpRoute.ui.filters }}
+      filters:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      backendRefs:
+        - name: {{ .Values.ui.serviceName | quote }}
+          port: {{ .Values.ui.service.port }}
+{{- end }}
+{{- if .Values.httpRoute.backend.enabled }}
+{{- if .Values.ingress.backend.enabled }}
+{{- fail "ingress.backend and httpRoute.backend are mutually exclusive - enable only one" }}
+{{- end }}
+{{- if not (.Capabilities.APIVersions.Has "gateway.networking.k8s.io/v1") }}
+{{- fail "httpRoute.backend is enabled but Gateway API CRDs (gateway.networking.k8s.io/v1) are not installed in this cluster - install the Gateway API CRDs first, or use ingress.backend instead" }}
+{{- end }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ include "detectflow.fullname" . }}-backend
+  labels:
+    {{- include "detectflow.labels" (dict "ctx" . "component" "backend") | nindent 4 }}
+    {{- with .Values.httpRoute.backend.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.httpRoute.backend.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  parentRefs:
+    {{- toYaml .Values.httpRoute.backend.parentRefs | nindent 4 }}
+  hostnames:
+    {{- toYaml .Values.httpRoute.backend.hostnames | nindent 4 }}
+  rules:
+    - matches:
+        - path:
+            type: {{ .Values.httpRoute.backend.pathType | default "PathPrefix" }}
+            value: {{ .Values.httpRoute.backend.path | default "/" | quote }}
+      {{- with .Values.httpRoute.backend.filters }}
+      filters:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      backendRefs:
+        - name: {{ .Values.backend.serviceName | quote }}
+          port: {{ .Values.backend.service.port }}
+{{- end }}

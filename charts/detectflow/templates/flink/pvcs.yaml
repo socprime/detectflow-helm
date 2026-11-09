@@ -1,0 +1,71 @@
+{{- if .Values.flink.pvcs.enabled }}
+{{- $sc := .Values.flink.pvcs.storageClass }}
+{{- $keep := .Values.flink.pvcs.keep }}
+{{- $accessModes := .Values.flink.pvcs.accessModes }}
+{{- $existing := dict "checkpoints" .Values.flink.pvcs.existingCheckpointsClaim "ha" .Values.flink.pvcs.existingHaClaim "savepoints" .Values.flink.pvcs.existingSavepointsClaim }}
+{{- if not (index $existing "checkpoints") }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "detectflow.pvcName" (dict "ctx" . "which" "checkpoints") }}
+  labels:
+    {{- include "detectflow.labels" (dict "ctx" . "component" "flink") | nindent 4 }}
+  {{- if $keep }}
+  annotations:
+    helm.sh/resource-policy: keep
+  {{- end }}
+spec:
+  accessModes:
+    {{- toYaml $accessModes | nindent 4 }}
+  {{- if $sc }}
+  storageClassName: {{ $sc | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.flink.pvcs.checkpointsSize | quote }}
+{{- end }}
+---
+{{- if not (index $existing "ha") }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "detectflow.pvcName" (dict "ctx" . "which" "ha") }}
+  labels:
+    {{- include "detectflow.labels" (dict "ctx" . "component" "flink") | nindent 4 }}
+  {{- if $keep }}
+  annotations:
+    helm.sh/resource-policy: keep
+  {{- end }}
+spec:
+  accessModes:
+    {{- toYaml $accessModes | nindent 4 }}
+  {{- if $sc }}
+  storageClassName: {{ $sc | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.flink.pvcs.haSize | quote }}
+{{- end }}
+---
+{{- if not (index $existing "savepoints") }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "detectflow.pvcName" (dict "ctx" . "which" "savepoints") }}
+  labels:
+    {{- include "detectflow.labels" (dict "ctx" . "component" "flink") | nindent 4 }}
+  {{- if $keep }}
+  annotations:
+    helm.sh/resource-policy: keep
+  {{- end }}
+spec:
+  accessModes:
+    {{- toYaml $accessModes | nindent 4 }}
+  {{- if $sc }}
+  storageClassName: {{ $sc | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.flink.pvcs.savepointsSize | quote }}
+{{- end }}
+{{- end }}
