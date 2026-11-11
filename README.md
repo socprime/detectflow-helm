@@ -9,7 +9,7 @@ This is the **open-source edition**. All images are public on Docker Hub under
 no registry login and no pull secret are needed. Everything else behaves
 exactly like the standard chart.
 
-> Chart version: `0.18.0+oss` · App version: `v2.3.2`
+> Chart version: `0.18.1+oss` · App version: `v2.3.3`
 
 ---
 
@@ -169,7 +169,7 @@ rbac.yaml mirrors the canonical `flink-rbac.yaml`.
 | Key | Default | Description |
 | --- | --- | --- |
 | `image.repository` | `socprime/detectflow-oss` | Backend image repository. (public) |
-| `image.tag` | `admin-panel-be-oss.v2.3.2` | Backend image tag. |
+| `image.tag` | `admin-panel-be-oss.v2.3.3` | Backend image tag. |
 | `image.pullPolicy` | `IfNotPresent` | Image pull policy. |
 | `serviceName` | `admin-panel-be` | Fixed Deployment/Service name (other components resolve it by DNS - keep stable). |
 | `replicas` | `1` | Number of backend pods. |
@@ -264,7 +264,7 @@ Same shape as backend minus `persistence`, `serviceAccount`, and `secret`.
 | Key | Default | Description |
 | --- | --- | --- |
 | `image.repository` | `socprime/detectflow-oss` | UI image repository. (public) |
-| `image.tag` | `admin-panel-ui-oss.v2.3.2` | UI image tag. |
+| `image.tag` | `admin-panel-ui-oss.v2.3.3` | UI image tag. |
 | `image.pullPolicy` | `IfNotPresent` | Image pull policy. |
 | `serviceName` | `admin-panel-ui` | Fixed Deployment/Service name (referenced by the Ingress). |
 | `replicas` | `1` | Number of UI pods. |
@@ -318,7 +318,7 @@ pre-created ConfigMap must carry all of these itself.
 | Key | Default | Description |
 | --- | --- | --- |
 | `image.repository` | `socprime/detectflow-oss` | Flink Sigma detector image repository (public). |
-| `image.tag` | `flink-sigma-detector-oss.v2.3.2` | Image tag. Handed to the backend as `FLINK_IMAGE`. |
+| `image.tag` | `flink-sigma-detector-oss.v2.3.3` | Image tag. Handed to the backend as `FLINK_IMAGE`. |
 | `image.pullPolicy` | `IfNotPresent` | `IMAGE_PULL_POLICY` for spawned Flink jobs. |
 | `rbac.create` | `true` | Render Flink RBAC: SA `flink` (carrying `imagePullSecrets` when any are set, for spawned job pods), `flink-internal-role`, and `admin-panel-flink-access` bound to the backend SA. The latter grants: `events` read; `flinkdeployments`/`flinksessionjobs` + `apps/deployments` + `batch/jobs` full lifecycle (the last for pipeline-deletion storage-cleanup Jobs); and read-only `batch/jobs/status`, `pods`, `pods/log`, `configmaps` (pod state and logs shown in the UI; `configmaps` also lets the backend resolve `SSL_CERT_FILE` for the agent-job CA mount). Mirrors the canonical `flink-rbac.yaml`. `false` when RBAC is applied externally. |
 | `existingConfigMap` | `""` | Reference a pre-created ConfigMap (any name). Empty → render `flink-config` from `config`. The chosen name is passed to the backend as `FLINK_CONFIG_CONFIGMAP_NAME`, which the operator-spawned Flink job spec reads - the pre-created ConfigMap must exist under that exact name. |
@@ -351,10 +351,10 @@ and triggered from the UI through the backend.
 | Key | Default | Description |
 | --- | --- | --- |
 | `agent.image.repository` | `socprime/detectflow-oss` | df-agent image repository (public). |
-| `agent.image.tag` | `df-agent-oss.v2.3.2` | Handed to the backend as `AGENT_JOB_IMAGE`. |
+| `agent.image.tag` | `df-agent-oss.v2.3.3` | Handed to the backend as `AGENT_JOB_IMAGE`. |
 | `agent.deploymentName` | `agent-job` | `AGENT_JOB_DEPLOYMENT_NAME` the backend manages. |
 | `correlation.image.repository` | `socprime/detectflow-oss` | df-correlation image repository (public). |
-| `correlation.image.tag` | `df-correlation-oss.v2.3.2` | Handed to the backend as `CORRELATION_JOB_IMAGE`. |
+| `correlation.image.tag` | `df-correlation-oss.v2.3.3` | Handed to the backend as `CORRELATION_JOB_IMAGE`. |
 | `correlation.deploymentName` | `correlation-job` | `CORRELATION_JOB_DEPLOYMENT_NAME` the backend manages. |
 | `correlation.serviceAccount` | `default` | `CORRELATION_JOB_SERVICE_ACCOUNT` for the job pods. |
 

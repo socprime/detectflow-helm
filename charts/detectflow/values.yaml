@@ -16,7 +16,7 @@ backend:
   # image: backend container image (repository/tag/pullPolicy)
   image:
     repository: "socprime/detectflow-oss"
-    tag: "admin-panel-be-oss.v2.3.2"
+    tag: "admin-panel-be-oss.v2.3.3"
     pullPolicy: "IfNotPresent"
   # serviceName: fixed Service/Deployment name other components resolve by DNS
   serviceName: "admin-panel-be"
@@ -165,7 +165,7 @@ ui:
   # image: UI container image (repository/tag/pullPolicy)
   image:
     repository: "socprime/detectflow-oss"
-    tag: "admin-panel-ui-oss.v2.3.2"
+    tag: "admin-panel-ui-oss.v2.3.3"
     pullPolicy: "IfNotPresent"
   # serviceName: fixed Service/Deployment name (ingress + internal references)
   serviceName: "admin-panel-ui"
@@ -267,7 +267,7 @@ flink:
   # No workload here uses it directly - the backend spawns FlinkDeployments with it.
   image:
     repository: "socprime/detectflow-oss"
-    tag: "flink-sigma-detector-oss.v2.3.2"
+    tag: "flink-sigma-detector-oss.v2.3.3"
     pullPolicy: "IfNotPresent"
   # rbac: Flink RBAC (SA 'flink' + roles/bindings). Rendered by default, and
   # equivalent to the standalone flink-rbac.yaml distributed with Prime Detect.
@@ -333,7 +333,7 @@ jobs:
   agent:
     image:
       repository: "socprime/detectflow-oss"
-      tag: "df-agent-oss.v2.3.2"
+      tag: "df-agent-oss.v2.3.3"
     # deploymentName: AGENT_JOB_DEPLOYMENT_NAME the backend manages
     deploymentName: "agent-job"
     # existingConfigMap: reference a pre-created ConfigMap instead of
@@ -362,7 +362,7 @@ jobs:
   correlation:
     image:
       repository: "socprime/detectflow-oss"
-      tag: "df-correlation-oss.v2.3.2"
+      tag: "df-correlation-oss.v2.3.3"
     # deploymentName: CORRELATION_JOB_DEPLOYMENT_NAME the backend manages
     deploymentName: "correlation-job"
     # serviceAccount: SA the correlation-job Deployment runs under

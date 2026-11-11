@@ -18,7 +18,7 @@ imagePullSecrets: []
 backend:
   image:
     repository: "socprime/detectflow-oss"
-    tag: "admin-panel-be-oss.v2.3.2"
+    tag: "admin-panel-be-oss.v2.3.3"
   existingConfigMap: "admin-panel-be-config"
   existingSecret: "admin-panel-be-secret"
   # RBAC is applied externally and binds to the 'default' SA, so don't create
@@ -37,7 +37,7 @@ backend:
 ui:
   image:
     repository: "socprime/detectflow-oss"
-    tag: "admin-panel-ui-oss.v2.3.2"
+    tag: "admin-panel-ui-oss.v2.3.3"
   existingConfigMap: "admin-panel-ui-config"
   nodeSelector:
     app: detectflow-prod
@@ -45,7 +45,7 @@ ui:
 flink:
   image:
     repository: "socprime/detectflow-oss"
-    tag: "flink-sigma-detector-oss.v2.3.2"
+    tag: "flink-sigma-detector-oss.v2.3.3"
   # RBAC is chart-managed (rbac.yaml mirrors the canonical flink-rbac.yaml)
   rbac:
     create: true
@@ -70,7 +70,7 @@ jobs:
   agent:
     image:
       repository: "socprime/detectflow-oss"
-      tag: "df-agent-oss.v2.3.2"
+      tag: "df-agent-oss.v2.3.3"
     deploymentName: "agent-job"
     # detectflow-agent-config / detectflow-agent-secrets are pre-created
     # externally under these names (any name works - passed to the backend
@@ -80,7 +80,7 @@ jobs:
   correlation:
     image:
       repository: "socprime/detectflow-oss"
-      tag: "df-correlation-oss.v2.3.2"
+      tag: "df-correlation-oss.v2.3.3"
     deploymentName: "correlation-job"
     serviceAccount: "default"
 
